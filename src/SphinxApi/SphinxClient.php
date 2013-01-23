@@ -1,5 +1,5 @@
 <?php
-
+namespace SphinxApi;
 //
 // $Id: sphinxapi.php 3439 2012-10-10 05:47:48Z kevg $
 //
@@ -18,83 +18,6 @@
 /////////////////////////////////////////////////////////////////////////////
 // PHP version of Sphinx searchd client (PHP API)
 /////////////////////////////////////////////////////////////////////////////
-
-/// known searchd commands
-define ( "SEARCHD_COMMAND_SEARCH",		0 );
-define ( "SEARCHD_COMMAND_EXCERPT",		1 );
-define ( "SEARCHD_COMMAND_UPDATE",		2 );
-define ( "SEARCHD_COMMAND_KEYWORDS",	3 );
-define ( "SEARCHD_COMMAND_PERSIST",		4 );
-define ( "SEARCHD_COMMAND_STATUS",		5 );
-define ( "SEARCHD_COMMAND_FLUSHATTRS",	7 );
-
-/// current client-side command implementation versions
-define ( "VER_COMMAND_SEARCH",		0x119 );
-define ( "VER_COMMAND_EXCERPT",		0x104 );
-define ( "VER_COMMAND_UPDATE",		0x102 );
-define ( "VER_COMMAND_KEYWORDS",	0x100 );
-define ( "VER_COMMAND_STATUS",		0x100 );
-define ( "VER_COMMAND_QUERY",		0x100 );
-define ( "VER_COMMAND_FLUSHATTRS",	0x100 );
-
-/// known searchd status codes
-define ( "SEARCHD_OK",				0 );
-define ( "SEARCHD_ERROR",			1 );
-define ( "SEARCHD_RETRY",			2 );
-define ( "SEARCHD_WARNING",			3 );
-
-/// known match modes
-define ( "SPH_MATCH_ALL",			0 );
-define ( "SPH_MATCH_ANY",			1 );
-define ( "SPH_MATCH_PHRASE",		2 );
-define ( "SPH_MATCH_BOOLEAN",		3 );
-define ( "SPH_MATCH_EXTENDED",		4 );
-define ( "SPH_MATCH_FULLSCAN",		5 );
-define ( "SPH_MATCH_EXTENDED2",		6 );	// extended engine V2 (TEMPORARY, WILL BE REMOVED)
-
-/// known ranking modes (ext2 only)
-define ( "SPH_RANK_PROXIMITY_BM25",	0 );	///< default mode, phrase proximity major factor and BM25 minor one
-define ( "SPH_RANK_BM25",			1 );	///< statistical mode, BM25 ranking only (faster but worse quality)
-define ( "SPH_RANK_NONE",			2 );	///< no ranking, all matches get a weight of 1
-define ( "SPH_RANK_WORDCOUNT",		3 );	///< simple word-count weighting, rank is a weighted sum of per-field keyword occurence counts
-define ( "SPH_RANK_PROXIMITY",		4 );
-define ( "SPH_RANK_MATCHANY",		5 );
-define ( "SPH_RANK_FIELDMASK",		6 );
-define ( "SPH_RANK_SPH04",			7 );
-define ( "SPH_RANK_EXPR",			8 );
-define ( "SPH_RANK_TOTAL",			9 );
-
-/// known sort modes
-define ( "SPH_SORT_RELEVANCE",		0 );
-define ( "SPH_SORT_ATTR_DESC",		1 );
-define ( "SPH_SORT_ATTR_ASC",		2 );
-define ( "SPH_SORT_TIME_SEGMENTS", 	3 );
-define ( "SPH_SORT_EXTENDED", 		4 );
-define ( "SPH_SORT_EXPR", 			5 );
-
-/// known filter types
-define ( "SPH_FILTER_VALUES",		0 );
-define ( "SPH_FILTER_RANGE",		1 );
-define ( "SPH_FILTER_FLOATRANGE",	2 );
-
-/// known attribute types
-define ( "SPH_ATTR_INTEGER",		1 );
-define ( "SPH_ATTR_TIMESTAMP",		2 );
-define ( "SPH_ATTR_ORDINAL",		3 );
-define ( "SPH_ATTR_BOOL",			4 );
-define ( "SPH_ATTR_FLOAT",			5 );
-define ( "SPH_ATTR_BIGINT",			6 );
-define ( "SPH_ATTR_STRING",			7 );
-define ( "SPH_ATTR_MULTI",			0x40000001 );
-define ( "SPH_ATTR_MULTI64",			0x40000002 );
-
-/// known grouping functions
-define ( "SPH_GROUPBY_DAY",			0 );
-define ( "SPH_GROUPBY_WEEK",		1 );
-define ( "SPH_GROUPBY_MONTH",		2 );
-define ( "SPH_GROUPBY_YEAR",		3 );
-define ( "SPH_GROUPBY_ATTR",		4 );
-define ( "SPH_GROUPBY_ATTRPAIR",	5 );
 
 // important properties of PHP's integers:
 //  - always signed (one bit short of PHP_INT_SIZE)
@@ -126,7 +49,7 @@ define ( "SPH_GROUPBY_ATTRPAIR",	5 );
 function sphPackI64 ( $v )
 {
 	assert ( is_numeric($v) );
-	
+
 	// x64
 	if ( PHP_INT_SIZE>=8 )
 	{
@@ -138,7 +61,7 @@ function sphPackI64 ( $v )
 	if ( is_int($v) )
 		return pack ( "NN", $v < 0 ? -1 : 0, $v );
 
-	// x32, bcmath	
+	// x32, bcmath
 	if ( function_exists("bcmul") )
 	{
 		if ( bccomp ( $v, 0 ) == -1 )
@@ -175,16 +98,16 @@ function sphPackI64 ( $v )
 function sphPackU64 ( $v )
 {
 	assert ( is_numeric($v) );
-	
+
 	// x64
 	if ( PHP_INT_SIZE>=8 )
 	{
 		assert ( $v>=0 );
-		
+
 		// x64, int
 		if ( is_int($v) )
 			return pack ( "NN", $v>>32, $v&0xFFFFFFFF );
-						  
+
 		// x64, bcmath
 		if ( function_exists("bcmul") )
 		{
@@ -192,12 +115,12 @@ function sphPackU64 ( $v )
 			$l = bcmod ( $v, 4294967296 );
 			return pack ( "NN", $h, $l );
 		}
-		
+
 		// x64, no-bcmath
 		$p = max ( 0, strlen($v) - 13 );
 		$lo = (int)substr ( $v, $p );
 		$hi = (int)substr ( $v, 0, $p );
-	
+
 		$m = $lo + $hi*1316134912;
 		$l = $m % 4294967296;
 		$h = $hi*2328 + (int)($m/4294967296);
@@ -208,7 +131,7 @@ function sphPackU64 ( $v )
 	// x32, int
 	if ( is_int($v) )
 		return pack ( "NN", 0, $v );
-	
+
 	// x32, bcmath
 	if ( function_exists("bcmul") )
 	{
@@ -221,7 +144,7 @@ function sphPackU64 ( $v )
 	$p = max(0, strlen($v) - 13);
 	$lo = (float)substr($v, $p);
 	$hi = (float)substr($v, 0, $p);
-	
+
 	$m = $lo + $hi*1316134912.0;
 	$q = floor($m / 4294967296.0);
 	$l = $m - ($q * 4294967296.0);
@@ -277,11 +200,11 @@ function sphUnpackU64 ( $v )
 	// x32, bcmath
 	if ( function_exists("bcmul") )
 		return bcadd ( $lo, bcmul ( $hi, "4294967296" ) );
-	
+
 	// x32, no-bcmath
 	$hi = (float)$hi;
 	$lo = (float)$lo;
-	
+
 	$q = floor($hi/10000000.0);
 	$r = $hi - $q*10000000.0;
 	$m = $lo + $r*4967296.0;
@@ -324,7 +247,7 @@ function sphUnpackI64 ( $v )
 			return $lo;
 		return sprintf ( "%.0f", $lo - 4294967296.0 );
 	}
-	
+
 	$neg = "";
 	$c = 0;
 	if ( $hi<0 )
@@ -333,7 +256,7 @@ function sphUnpackI64 ( $v )
 		$lo = ~$lo;
 		$c = 1;
 		$neg = "-";
-	}	
+	}
 
 	$hi = sprintf ( "%u", $hi );
 	$lo = sprintf ( "%u", $lo );
@@ -345,7 +268,7 @@ function sphUnpackI64 ( $v )
 	// x32, no-bcmath
 	$hi = (float)$hi;
 	$lo = (float)$lo;
-	
+
 	$q = floor($hi/10000000.0);
 	$r = $hi - $q*10000000.0;
 	$m = $lo + $r*4967296.0;
@@ -385,6 +308,83 @@ function sphFixUint ( $value )
 /// sphinx searchd client class
 class SphinxClient
 {
+/// known searchd commands
+    const SEARCHD_COMMAND_SEARCH = 0;
+    const SEARCHD_COMMAND_EXCERPT = 1;
+    const SEARCHD_COMMAND_UPDATE = 2;
+    const SEARCHD_COMMAND_KEYWORDS = 3;
+    const SEARCHD_COMMAND_PERSIST = 4;
+    const SEARCHD_COMMAND_STATUS = 5;
+    const SEARCHD_COMMAND_FLUSHATTRS = 7;
+
+/// current client-side command implementation versions
+    const VER_COMMAND_SEARCH = 0x119;
+    const VER_COMMAND_EXCERPT = 0x104;
+    const VER_COMMAND_UPDATE = 0x102;
+    const VER_COMMAND_KEYWORDS = 0x100;
+    const VER_COMMAND_STATUS = 0x100;
+    const VER_COMMAND_QUERY = 0x100;
+    const VER_COMMAND_FLUSHATTRS = 0x100;
+
+/// known searchd status codes
+    const SEARCHD_OK = 0;
+    const SEARCHD_ERROR = 1;
+    const SEARCHD_RETRY = 2;
+    const SEARCHD_WARNING = 3;
+
+/// known match modes
+    const SPH_MATCH_ALL = 0;
+    const SPH_MATCH_ANY = 1;
+    const SPH_MATCH_PHRASE = 2;
+    const SPH_MATCH_BOOLEAN = 3;
+    const SPH_MATCH_EXTENDED = 4;
+    const SPH_MATCH_FULLSCAN = 5;
+    const SPH_MATCH_EXTENDED2 = 6;	// extended engine V2 (TEMPORARY, WILL BE REMOVED)
+
+/// known ranking modes (ext2 only)
+    const SPH_RANK_PROXIMITY_BM25 = 0;	///< default mode, phrase proximity major factor and BM25 minor one
+    const SPH_RANK_BM25 = 1;	///< statistical mode, BM25 ranking only (faster but worse quality)
+    const SPH_RANK_NONE = 2;	///< no ranking, all matches get a weight of 1
+    const SPH_RANK_WORDCOUNT = 3;	///< simple word-count weighting, rank is a weighted sum of per-field keyword occurence counts
+    const SPH_RANK_PROXIMITY = 4;
+    const SPH_RANK_MATCHANY = 5;
+    const SPH_RANK_FIELDMASK = 6;
+    const SPH_RANK_SPH04 = 7;
+    const SPH_RANK_EXPR = 8;
+    const SPH_RANK_TOTAL = 9;
+
+/// known sort modes
+    const SPH_SORT_RELEVANCE = 0;
+    const SPH_SORT_ATTR_DESC = 1;
+    const SPH_SORT_ATTR_ASC = 2;
+    const SPH_SORT_TIME_SEGMENTS = 3;
+    const SPH_SORT_EXTENDED = 4;
+    const SPH_SORT_EXPR = 5;
+
+/// known filter types
+    const SPH_FILTER_VALUES = 0;
+    const SPH_FILTER_RANGE = 1;
+    const SPH_FILTER_FLOATRANGE = 2;
+
+/// known attribute types
+    const SPH_ATTR_INTEGER = 1;
+    const SPH_ATTR_TIMESTAMP = 2;
+    const SPH_ATTR_ORDINAL = 3;
+    const SPH_ATTR_BOOL = 4;
+    const SPH_ATTR_FLOAT = 5;
+    const SPH_ATTR_BIGINT = 6;
+    const SPH_ATTR_STRING = 7;
+    const SPH_ATTR_MULTI = 0x40000001;
+    const SPH_ATTR_MULTI64 = 0x40000002;
+
+/// known grouping functions
+    const SPH_GROUPBY_DAY = 0;
+    const SPH_GROUPBY_WEEK = 1;
+    const SPH_GROUPBY_MONTH = 2;
+    const SPH_GROUPBY_YEAR = 3;
+    const SPH_GROUPBY_ATTR = 4;
+    const SPH_GROUPBY_ATTRPAIR = 5;
+
 	var $_host;			///< searchd host (default is "localhost")
 	var $_port;			///< searchd port (default is 9312)
 	var $_offset;		///< how many records to seek from result-set start (default is 0)
@@ -427,7 +427,7 @@ class SphinxClient
 	/////////////////////////////////////////////////////////////////////////////
 
 	/// create a new client object and fill defaults
-	function SphinxClient ()
+	public function __construct()
 	{
 		// per-client-object settings
 		$this->_host		= "localhost";
@@ -438,15 +438,15 @@ class SphinxClient
 		// per-query settings
 		$this->_offset		= 0;
 		$this->_limit		= 20;
-		$this->_mode		= SPH_MATCH_ALL;
+		$this->_mode		= self::SPH_MATCH_ALL;
 		$this->_weights		= array ();
-		$this->_sort		= SPH_SORT_RELEVANCE;
+		$this->_sort		= self::SPH_SORT_RELEVANCE;
 		$this->_sortby		= "";
 		$this->_min_id		= 0;
 		$this->_max_id		= 0;
 		$this->_filters		= array ();
 		$this->_groupby		= "";
-		$this->_groupfunc	= SPH_GROUPBY_DAY;
+		$this->_groupfunc	= self::SPH_GROUPBY_DAY;
 		$this->_groupsort	= "@group desc";
 		$this->_groupdistinct= "";
 		$this->_maxmatches	= 1000;
@@ -455,7 +455,7 @@ class SphinxClient
 		$this->_retrydelay	= 0;
 		$this->_anchor		= array ();
 		$this->_indexweights= array ();
-		$this->_ranker		= SPH_RANK_PROXIMITY_BM25;
+		$this->_ranker		= self::SPH_RANK_PROXIMITY_BM25;
 		$this->_rankexpr	= "";
 		$this->_maxquerytime= 0;
 		$this->_fieldweights= array();
@@ -510,7 +510,7 @@ class SphinxClient
 			$this->_path = $host;
 			return;
 		}
-				
+
 		$this->_host = $host;
 		if ( is_int($port) )
 			if ( $port )
@@ -591,14 +591,14 @@ class SphinxClient
 			$fp = @fsockopen ( $host, $port, $errno, $errstr );
 		else
 			$fp = @fsockopen ( $host, $port, $errno, $errstr, $this->_timeout );
-		
+
 		if ( !$fp )
 		{
 			if ( $this->_path )
 				$location = $this->_path;
 			else
 				$location = "{$this->_host}:{$this->_port}";
-			
+
 			$errstr = trim ( $errstr );
 			$this->_error = "connection to $location failed (errno=$errno, msg=$errstr)";
 			$this->_connerror = true;
@@ -664,23 +664,23 @@ class SphinxClient
 		}
 
 		// check status
-		if ( $status==SEARCHD_WARNING )
+		if ( $status==self::SEARCHD_WARNING )
 		{
 			list(,$wlen) = unpack ( "N*", substr ( $response, 0, 4 ) );
 			$this->_warning = substr ( $response, 4, $wlen );
 			return substr ( $response, 4+$wlen );
 		}
-		if ( $status==SEARCHD_ERROR )
+		if ( $status==self::SEARCHD_ERROR )
 		{
 			$this->_error = "searchd error: " . substr ( $response, 4 );
 			return false;
 		}
-		if ( $status==SEARCHD_RETRY )
+		if ( $status==self::SEARCHD_RETRY )
 		{
 			$this->_error = "temporary searchd error: " . substr ( $response, 4 );
 			return false;
 		}
-		if ( $status!=SEARCHD_OK )
+		if ( $status!=self::SEARCHD_OK )
 		{
 			$this->_error = "unknown status code '$status'";
 			return false;
@@ -729,20 +729,20 @@ class SphinxClient
 	/// set matching mode
 	function SetMatchMode ( $mode )
 	{
-		assert ( $mode==SPH_MATCH_ALL
-			|| $mode==SPH_MATCH_ANY
-			|| $mode==SPH_MATCH_PHRASE
-			|| $mode==SPH_MATCH_BOOLEAN
-			|| $mode==SPH_MATCH_EXTENDED
-			|| $mode==SPH_MATCH_FULLSCAN
-			|| $mode==SPH_MATCH_EXTENDED2 );
+		assert ( $mode==self::SPH_MATCH_ALL
+			|| $mode==self::SPH_MATCH_ANY
+			|| $mode==self::SPH_MATCH_PHRASE
+			|| $mode==self::SPH_MATCH_BOOLEAN
+			|| $mode==self::SPH_MATCH_EXTENDED
+			|| $mode==self::SPH_MATCH_FULLSCAN
+			|| $mode==self::SPH_MATCH_EXTENDED2 );
 		$this->_mode = $mode;
 	}
 
 	/// set ranking mode
 	function SetRankingMode ( $ranker, $rankexpr="" )
 	{
-		assert ( $ranker===0 || $ranker>=1 && $ranker<SPH_RANK_TOTAL );
+		assert ( $ranker===0 || $ranker>=1 && $ranker<self::SPH_RANK_TOTAL );
 		assert ( is_string($rankexpr) );
 		$this->_ranker = $ranker;
 		$this->_rankexpr = $rankexpr;
@@ -752,14 +752,14 @@ class SphinxClient
 	function SetSortMode ( $mode, $sortby="" )
 	{
 		assert (
-			$mode==SPH_SORT_RELEVANCE ||
-			$mode==SPH_SORT_ATTR_DESC ||
-			$mode==SPH_SORT_ATTR_ASC ||
-			$mode==SPH_SORT_TIME_SEGMENTS ||
-			$mode==SPH_SORT_EXTENDED ||
-			$mode==SPH_SORT_EXPR );
+			$mode==self::SPH_SORT_RELEVANCE ||
+			$mode==self::SPH_SORT_ATTR_DESC ||
+			$mode==self::SPH_SORT_ATTR_ASC ||
+			$mode==self::SPH_SORT_TIME_SEGMENTS ||
+			$mode==self::SPH_SORT_EXTENDED ||
+			$mode==self::SPH_SORT_EXPR );
 		assert ( is_string($sortby) );
-		assert ( $mode==SPH_SORT_RELEVANCE || strlen($sortby)>0 );
+		assert ( $mode==self::SPH_SORT_RELEVANCE || strlen($sortby)>0 );
 
 		$this->_sort = $mode;
 		$this->_sortby = $sortby;
@@ -824,7 +824,7 @@ class SphinxClient
 			foreach ( $values as $value )
 				assert ( is_numeric($value) );
 
-			$this->_filters[] = array ( "type"=>SPH_FILTER_VALUES, "attr"=>$attribute, "exclude"=>$exclude, "values"=>$values );
+			$this->_filters[] = array ( "type"=>self::SPH_FILTER_VALUES, "attr"=>$attribute, "exclude"=>$exclude, "values"=>$values );
 		}
 	}
 
@@ -837,7 +837,7 @@ class SphinxClient
 		assert ( is_numeric($max) );
 		assert ( $min<=$max );
 
-		$this->_filters[] = array ( "type"=>SPH_FILTER_RANGE, "attr"=>$attribute, "exclude"=>$exclude, "min"=>$min, "max"=>$max );
+		$this->_filters[] = array ( "type"=>self::SPH_FILTER_RANGE, "attr"=>$attribute, "exclude"=>$exclude, "min"=>$min, "max"=>$max );
 	}
 
 	/// set float range filter
@@ -849,7 +849,7 @@ class SphinxClient
 		assert ( is_float($max) );
 		assert ( $min<=$max );
 
-		$this->_filters[] = array ( "type"=>SPH_FILTER_FLOATRANGE, "attr"=>$attribute, "exclude"=>$exclude, "min"=>$min, "max"=>$max );
+		$this->_filters[] = array ( "type"=>self::SPH_FILTER_FLOATRANGE, "attr"=>$attribute, "exclude"=>$exclude, "min"=>$min, "max"=>$max );
 	}
 
 	/// setup anchor point for geosphere distance calculations
@@ -870,12 +870,12 @@ class SphinxClient
 	{
 		assert ( is_string($attribute) );
 		assert ( is_string($groupsort) );
-		assert ( $func==SPH_GROUPBY_DAY
-			|| $func==SPH_GROUPBY_WEEK
-			|| $func==SPH_GROUPBY_MONTH
-			|| $func==SPH_GROUPBY_YEAR
-			|| $func==SPH_GROUPBY_ATTR
-			|| $func==SPH_GROUPBY_ATTRPAIR );
+		assert ( $func==self::SPH_GROUPBY_DAY
+			|| $func==self::SPH_GROUPBY_WEEK
+			|| $func==self::SPH_GROUPBY_MONTH
+			|| $func==self::SPH_GROUPBY_YEAR
+			|| $func==self::SPH_GROUPBY_ATTR
+			|| $func==self::SPH_GROUPBY_ATTRPAIR );
 
 		$this->_groupby = $attribute;
 		$this->_groupfunc = $func;
@@ -912,7 +912,7 @@ class SphinxClient
 	function SetOverride ( $attrname, $attrtype, $values )
 	{
 		assert ( is_string ( $attrname ) );
-		assert ( in_array ( $attrtype, array ( SPH_ATTR_INTEGER, SPH_ATTR_TIMESTAMP, SPH_ATTR_BOOL, SPH_ATTR_FLOAT, SPH_ATTR_BIGINT ) ) );
+		assert ( in_array ( $attrtype, array ( self::SPH_ATTR_INTEGER, self::SPH_ATTR_TIMESTAMP, self::SPH_ATTR_BOOL, self::SPH_ATTR_FLOAT, self::SPH_ATTR_BIGINT ) ) );
 		assert ( is_array ( $values ) );
 
 		$this->_overrides[$attrname] = array ( "attr"=>$attrname, "type"=>$attrtype, "values"=>$values );
@@ -938,7 +938,7 @@ class SphinxClient
 	function ResetGroupBy ()
 	{
 		$this->_groupby		= "";
-		$this->_groupfunc	= SPH_GROUPBY_DAY;
+		$this->_groupfunc	= self::SPH_GROUPBY_DAY;
 		$this->_groupsort	= "@group desc";
 		$this->_groupdistinct= "";
 	}
@@ -966,7 +966,7 @@ class SphinxClient
 
 		$this->_error = $results[0]["error"];
 		$this->_warning = $results[0]["warning"];
-		if ( $results[0]["status"]==SEARCHD_ERROR )
+		if ( $results[0]["status"]==self::SEARCHD_ERROR )
 			return false;
 		else
 			return $results[0];
@@ -989,7 +989,7 @@ class SphinxClient
 
 		// build request
 		$req = pack ( "NNNN", $this->_offset, $this->_limit, $this->_mode, $this->_ranker );
-		if ( $this->_ranker==SPH_RANK_EXPR )
+		if ( $this->_ranker==self::SPH_RANK_EXPR )
 			$req .= pack ( "N", strlen($this->_rankexpr) ) . $this->_rankexpr;
 		$req .= pack ( "N", $this->_sort ); // (deprecated) sort mode
 		$req .= pack ( "N", strlen($this->_sortby) ) . $this->_sortby;
@@ -1009,17 +1009,17 @@ class SphinxClient
 			$req .= pack ( "N", $filter["type"] );
 			switch ( $filter["type"] )
 			{
-				case SPH_FILTER_VALUES:
+				case self::SPH_FILTER_VALUES:
 					$req .= pack ( "N", count($filter["values"]) );
 					foreach ( $filter["values"] as $value )
 						$req .= sphPackI64 ( $value );
 					break;
 
-				case SPH_FILTER_RANGE:
+				case self::SPH_FILTER_RANGE:
 					$req .= sphPackI64 ( $filter["min"] ) . sphPackI64 ( $filter["max"] );
 					break;
 
-				case SPH_FILTER_FLOATRANGE:
+				case self::SPH_FILTER_FLOATRANGE:
 					$req .= $this->_PackFloat ( $filter["min"] ) . $this->_PackFloat ( $filter["max"] );
 					break;
 
@@ -1079,8 +1079,8 @@ class SphinxClient
 				$req .= sphPackU64 ( $id );
 				switch ( $entry["type"] )
 				{
-					case SPH_ATTR_FLOAT:	$req .= $this->_PackFloat ( $val ); break;
-					case SPH_ATTR_BIGINT:	$req .= sphPackI64 ( $val ); break;
+					case self::SPH_ATTR_FLOAT:	$req .= $this->_PackFloat ( $val ); break;
+					case self::SPH_ATTR_BIGINT:	$req .= sphPackI64 ( $val ); break;
 					default:				$req .= pack ( "N", $val ); break;
 				}
 			}
@@ -1119,10 +1119,10 @@ class SphinxClient
 		$nreqs = count($this->_reqs);
 		$req = join ( "", $this->_reqs );
 		$len = 8+strlen($req);
-		$req = pack ( "nnNNN", SEARCHD_COMMAND_SEARCH, VER_COMMAND_SEARCH, $len, 0, $nreqs ) . $req; // add header
+		$req = pack ( "nnNNN", self::SEARCHD_COMMAND_SEARCH, self::VER_COMMAND_SEARCH, $len, 0, $nreqs ) . $req; // add header
 
 		if ( !( $this->_Send ( $fp, $req, $len+8 ) ) ||
-			 !( $response = $this->_GetResponse ( $fp, VER_COMMAND_SEARCH ) ) )
+			 !( $response = $this->_GetResponse ( $fp, self::VER_COMMAND_SEARCH ) ) )
 		{
 			$this->_MBPop ();
 			return false;
@@ -1153,12 +1153,12 @@ class SphinxClient
 			// extract status
 			list(,$status) = unpack ( "N*", substr ( $response, $p, 4 ) ); $p += 4;
 			$result["status"] = $status;
-			if ( $status!=SEARCHD_OK )
+			if ( $status!=self::SEARCHD_OK )
 			{
 				list(,$len) = unpack ( "N*", substr ( $response, $p, 4 ) ); $p += 4;
 				$message = substr ( $response, $p, $len ); $p += $len;
 
-				if ( $status==SEARCHD_WARNING )
+				if ( $status==self::SEARCHD_WARNING )
 				{
 					$result["warning"] = $message;
 				} else
@@ -1227,24 +1227,24 @@ class SphinxClient
 				foreach ( $attrs as $attr=>$type )
 				{
 					// handle 64bit ints
-					if ( $type==SPH_ATTR_BIGINT )
+					if ( $type==self::SPH_ATTR_BIGINT )
 					{
 						$attrvals[$attr] = sphUnpackI64 ( substr ( $response, $p, 8 ) ); $p += 8;
 						continue;
 					}
 
 					// handle floats
-					if ( $type==SPH_ATTR_FLOAT )
+					if ( $type==self::SPH_ATTR_FLOAT )
 					{
 						list(,$uval) = unpack ( "N*", substr ( $response, $p, 4 ) ); $p += 4;
-						list(,$fval) = unpack ( "f*", pack ( "L", $uval ) ); 
+						list(,$fval) = unpack ( "f*", pack ( "L", $uval ) );
 						$attrvals[$attr] = $fval;
 						continue;
 					}
 
 					// handle everything else as unsigned ints
 					list(,$val) = unpack ( "N*", substr ( $response, $p, 4 ) ); $p += 4;
-					if ( $type==SPH_ATTR_MULTI )
+					if ( $type==self::SPH_ATTR_MULTI )
 					{
 						$attrvals[$attr] = array ();
 						$nvalues = $val;
@@ -1253,7 +1253,7 @@ class SphinxClient
 							list(,$val) = unpack ( "N*", substr ( $response, $p, 4 ) ); $p += 4;
 							$attrvals[$attr][] = sphFixUint($val);
 						}
-					} else if ( $type==SPH_ATTR_MULTI64 )
+					} else if ( $type==self::SPH_ATTR_MULTI64 )
 					{
 						$attrvals[$attr] = array ();
 						$nvalues = $val;
@@ -1262,10 +1262,10 @@ class SphinxClient
 							$attrvals[$attr][] = sphUnpackI64 ( substr ( $response, $p, 8 ) ); $p += 8;
 							$nvalues -= 2;
 						}
-					} else if ( $type==SPH_ATTR_STRING )
+					} else if ( $type==self::SPH_ATTR_STRING )
 					{
 						$attrvals[$attr] = substr ( $response, $p, $val );
-						$p += $val;						
+						$p += $val;
 					} else
 					{
 						$attrvals[$attr] = sphFixUint($val);
@@ -1346,7 +1346,7 @@ class SphinxClient
 		if ( !isset($opts["passage_boundary"]) )	$opts["passage_boundary"] = "none";
 		if ( !isset($opts["emit_zones"]) )			$opts["emit_zones"] = false;
 		if ( !isset($opts["load_files_scattered"]) )		$opts["load_files_scattered"] = false;
-		
+
 
 		/////////////////
 		// build request
@@ -1390,9 +1390,9 @@ class SphinxClient
 		////////////////////////////
 
 		$len = strlen($req);
-		$req = pack ( "nnN", SEARCHD_COMMAND_EXCERPT, VER_COMMAND_EXCERPT, $len ) . $req; // add header
+		$req = pack ( "nnN", self::SEARCHD_COMMAND_EXCERPT, self::VER_COMMAND_EXCERPT, $len ) . $req; // add header
 		if ( !( $this->_Send ( $fp, $req, $len+8 ) ) ||
-			 !( $response = $this->_GetResponse ( $fp, VER_COMMAND_EXCERPT ) ) )
+			 !( $response = $this->_GetResponse ( $fp, self::VER_COMMAND_EXCERPT ) ) )
 		{
 			$this->_MBPop ();
 			return false;
@@ -1460,9 +1460,9 @@ class SphinxClient
 		////////////////////////////
 
 		$len = strlen($req);
-		$req = pack ( "nnN", SEARCHD_COMMAND_KEYWORDS, VER_COMMAND_KEYWORDS, $len ) . $req; // add header
+		$req = pack ( "nnN", self::SEARCHD_COMMAND_KEYWORDS, self::VER_COMMAND_KEYWORDS, $len ) . $req; // add header
 		if ( !( $this->_Send ( $fp, $req, $len+8 ) ) ||
-			 !( $response = $this->_GetResponse ( $fp, VER_COMMAND_KEYWORDS ) ) )
+			 !( $response = $this->_GetResponse ( $fp, self::VER_COMMAND_KEYWORDS ) ) )
 		{
 			$this->_MBPop ();
 			return false;
@@ -1583,14 +1583,14 @@ class SphinxClient
 		}
 
 		$len = strlen($req);
-		$req = pack ( "nnN", SEARCHD_COMMAND_UPDATE, VER_COMMAND_UPDATE, $len ) . $req; // add header
+		$req = pack ( "nnN", self::SEARCHD_COMMAND_UPDATE, self::VER_COMMAND_UPDATE, $len ) . $req; // add header
 		if ( !$this->_Send ( $fp, $req, $len+8 ) )
 		{
 			$this->_MBPop ();
 			return -1;
 		}
 
-		if (!( $response = $this->_GetResponse ( $fp, VER_COMMAND_UPDATE ) ))
+		if (!( $response = $this->_GetResponse ( $fp, self::VER_COMMAND_UPDATE ) ))
 		{
 			$this->_MBPop ();
 			return -1;
@@ -1617,7 +1617,7 @@ class SphinxClient
 			return false;
 
 		// command, command version = 0, body length = 4, body = 1
-		$req = pack ( "nnNN", SEARCHD_COMMAND_PERSIST, 0, 4, 1 );
+		$req = pack ( "nnNN", self::SEARCHD_COMMAND_PERSIST, 0, 4, 1 );
 		if ( !$this->_Send ( $fp, $req, 12 ) )
 			return false;
 
@@ -1635,7 +1635,7 @@ class SphinxClient
 
 		fclose ( $this->_socket );
 		$this->_socket = false;
-		
+
 		return true;
 	}
 
@@ -1652,9 +1652,9 @@ class SphinxClient
 			return false;
 		}
 
-		$req = pack ( "nnNN", SEARCHD_COMMAND_STATUS, VER_COMMAND_STATUS, 4, 1 ); // len=4, body=1
+		$req = pack ( "nnNN", self::SEARCHD_COMMAND_STATUS, self::VER_COMMAND_STATUS, 4, 1 ); // len=4, body=1
 		if ( !( $this->_Send ( $fp, $req, 12 ) ) ||
-			 !( $response = $this->_GetResponse ( $fp, VER_COMMAND_STATUS ) ) )
+			 !( $response = $this->_GetResponse ( $fp, self::VER_COMMAND_STATUS ) ) )
 		{
 			$this->_MBPop ();
 			return false;
@@ -1689,9 +1689,9 @@ class SphinxClient
 			return -1;
 		}
 
-		$req = pack ( "nnN", SEARCHD_COMMAND_FLUSHATTRS, VER_COMMAND_FLUSHATTRS, 0 ); // len=0
+		$req = pack ( "nnN", self::SEARCHD_COMMAND_FLUSHATTRS, self::VER_COMMAND_FLUSHATTRS, 0 ); // len=0
 		if ( !( $this->_Send ( $fp, $req, 8 ) ) ||
-			 !( $response = $this->_GetResponse ( $fp, VER_COMMAND_FLUSHATTRS ) ) )
+			 !( $response = $this->_GetResponse ( $fp, self::VER_COMMAND_FLUSHATTRS ) ) )
 		{
 			$this->_MBPop ();
 			return -1;

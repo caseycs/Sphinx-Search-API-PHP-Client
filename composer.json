@@ -16,6 +16,8 @@
         }
     ],
     "autoload": {
-        "classmap": ["sphinxapi.php"]
+        "psr-0": {
+            "SphinxApi": "src/"
+        }
     }
 }
