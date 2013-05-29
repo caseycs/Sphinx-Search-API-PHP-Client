@@ -14,7 +14,7 @@ This repository is used to make SphinxSearch API PHP Client available through
 
 
 There is also [branch](https://github.com/romainneutron/Sphinx-Search-API-PHP-Client/tree/psr0) with [PSR-0](https://github.com/php-fig/fig-standards/blob/master/accepted/PSR-0.md)
-file structure and without class-only constants (for example `SEARCHD_COMMAND_SEARCH` moved
+file structure and class-only constants (for example `SEARCHD_COMMAND_SEARCH` moved
 to `SphinxSearchApi_Client::SEARCHD_COMMAND_SEARCH`).
 
     {
